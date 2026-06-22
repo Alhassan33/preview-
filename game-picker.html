@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pick Your Game — Void Protocol</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Space+Grotesk:wght@400;600;700&display=swap');
+
+:root {
+  --bg: #05050a;
+  --surface: #0d0d14;
+  --border: #1c1c2e;
+  --dim: #2a2a4a;
+  --muted: #4a4a6a;
+  --sub: #94a3b8;
+  --text: #e2e8f0;
+  --purple: #7c3aed;
+  --glow: #a855f7;
+  --cyan: #22d3ee;
+  --orange: #f97316;
+  --green: #22c55e;
+  --red: #f43f5e;
+  --yellow: #eab308;
+  --mono: 'Space Mono', monospace;
+  --sans: 'Space Grotesk', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(124,58,237,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+header {
+  text-align: center;
+  padding: 48px 20px 32px;
+  position: relative; z-index: 1;
+}
+
+header h1 {
+  font-family: var(--mono);
+  font-size: 13px; letter-spacing: 6px;
+  color: var(--glow); margin-bottom: 12px;
+}
+
+header p {
+  color: var(--sub); font-size: 15px;
+}
+
+/* TABS */
+.tabs {
+  display: flex; justify-content: center; gap: 8px;
+  padding: 0 20px 32px;
+  flex-wrap: wrap;
+  position: relative; z-index: 1;
+}
+
+.tab {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
+  padding: 10px 22px; cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface); color: var(--muted);
+  transition: all 0.2s;
+}
+
+.tab:hover { border-color: var(--dim); color: var(--sub); }
+.tab.active { border-color: var(--purple); color: var(--glow); background: rgba(124,58,237,0.08); }
+
+/* GAME AREA */
+.arena {
+  max-width: 760px; margin: 0 auto;
+  padding: 0 20px 60px;
+  position: relative; z-index: 1;
+}
+
+.game-card {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 32px;
+}
+
+.game-card.active { display: block; }
+
+.game-card-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+}
+
+.game-title { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+.game-vibe {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+  padding: 5px 12px; border: 1px solid var(--dim); color: var(--muted);
+}
+
+.game-desc {
+  color: var(--sub); font-size: 14px; line-height: 1.6;
+  margin-bottom: 24px; max-width: 520px;
+}
+
+canvas { display: block; border: 1px solid var(--border); background: #030308; cursor: crosshair; max-width: 100%; }
+
+.game-hud {
+  display: flex; gap: 24px; margin-bottom: 12px;
+  font-family: var(--mono); font-size: 12px; flex-wrap: wrap;
+}
+
+.hud-item { color: var(--muted); }
+.hud-item span { color: var(--text); }
+
+.game-actions {
+  display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;
+}
+
+.btn {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
+  padding: 11px 24px; cursor: pointer; border: none; transition: all 0.2s;
+}
+
+.btn-pick { background: var(--purple); color: #fff; }
+.btn-pick:hover { background: var(--glow); }
+.btn-restart { background: transparent; border: 1px solid var(--dim); color: var(--muted); }
+.btn-restart:hover { border-color: var(--purple); color: var(--glow); }
+
+.result-msg {
+  font-family: var(--mono); font-size: 13px; letter-spacing: 1px;
+  padding: 12px 16px; margin-top: 12px; text-align: center; display: none;
+}
+
+.result-msg.show { display: block; }
+.result-msg.win { background: rgba(34,211,238,0.07); color: var(--cyan); border: 1px solid rgba(34,211,238,0.2); }
+.result-msg.lose { background: rgba(244,63,94,0.07); color: var(--red); border: 1px solid rgba(244,63,94,0.2); }
+
+/* PICK OVERLAY */
+#pick-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(5,5,10,0.96); z-index: 200;
+  justify-content: center; align-items: center; flex-direction: column; gap: 20px;
+  text-align: center; padding: 40px;
+}
+
+#pick-overlay.show { display: flex; }
+
+.pick-title {
+  font-family: var(--mono); font-size: 48px; font-weight: 700;
+  color: var(--cyan);
+}
+
+.pick-sub {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 3px; color: var(--muted);
+}
+
+.pick-dismiss {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
+  padding: 12px 28px; cursor: pointer;
+  background: transparent; border: 1px solid var(--purple); color: var(--glow);
+  margin-top: 8px; transition: all 0.2s;
+}
+.pick-dismiss:hover { background: var(--purple); color: #fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PICK YOUR GAME GATE</h1>
+  <p>Play all four. Pick the one that makes you rage the right way.</p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchGame('maze')">🌀 CURSOR MAZE</button>
+  <button class="tab" onclick="switchGame('sequence')">🧠 SIMON SEQUENCE</button>
+  <button class="tab" onclick="switchGame('dodge')">💀 BLOCK DODGE</button>
+  <button class="tab" onclick="switchGame('color')">🎨 COLOR RUSH</button>
+</div>
+
+<div class="arena">
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- GAME 1: CURSOR MAZE -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="game-card active" id="card-maze">
+    <div class="game-card-header">
+      <div>
+        <div class="game-title">Cursor Maze</div>
+        <div style="color:var(--sub);font-size:13px;margin-top:4px">Navigate without touching walls. Touch = restart.</div>
+      </div>
+      <span class="game-vibe">PRECISION RAGE</span>
+    </div>
+    <p class="game-desc">
+      Guide your dot through a randomly generated maze. Walls kill you instantly. Maze changes every attempt.
+      Bots can't pathfind something they've never seen. Humans just barely can.
+    </p>
+    <div class="game-hud">
+      <div class="hud-item">DEATHS <span id="maze-deaths">0</span></div>
+      <div class="hud-item">TIME <span id="maze-time">0.0</span>s</div>
+      <div class="hud-item">STATUS <span id="maze-status">Move to start</span></div>
+    </div>
+    <canvas id="maze-canvas" width="696" height="380"></canvas>
+    <div id="maze-result" class="result-msg"></div>
+    <div class="game-actions">
+      <button class="btn btn-pick" onclick="pick('Cursor Maze')">✓ PICK THIS GAME</button>
+      <button class="btn btn-restart" onclick="initMaze()">NEW MAZE</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- GAME 2: SIMON SEQUENCE -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="game-card" id="card-sequence">
+    <div class="game-card-header">
+      <div>
+        <div class="game-title">Simon Sequence</div>
+        <div style="color:var(--sub);font-size:13px;margin-top:4px">Watch. Remember. Repeat. Sequence grows each round.</div>
+      </div>
+      <span class="game-vibe">MEMORY RAGE</span>
+    </div>
+    <p class="game-desc">
+      Watch a sequence light up, then repeat it in order. Each round adds one more.
+      Reach round 7 to pass. Can't be botted — sequence is random per session, server-seeded.
+    </p>
+    <div class="game-hud">
+      <div class="hud-item">ROUND <span id="seq-round">0</span>/7</div>
+      <div class="hud-item">LIVES <span id="seq-lives">3</span></div>
+      <div class="hud-item">STATUS <span id="seq-status">Press Start</span></div>
+    </div>
+    <canvas id="seq-canvas" width="696" height="380"></canvas>
+    <div id="seq-result" class="result-msg"></div>
+    <div class="game-actions">
+      <button class="btn btn-pick" onclick="pick('Simon Sequence')">✓ PICK THIS GAME</button>
+      <button class="btn btn-restart" onclick="initSeq()">RESTART</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- GAME 3: BLOCK DODGE -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="game-card" id="card-dodge">
+    <div class="game-card-header">
+      <div>
+        <div class="game-title">Block Dodge</div>
+        <div style="color:var(--sub);font-size:13px;margin-top:4px">Move your cursor. Avoid everything. Survive 20s.</div>
+      </div>
+      <span class="game-vibe">SURVIVAL RAGE</span>
+    </div>
+    <p class="game-desc">
+      Move your cursor to keep the player alive. Blocks fall, bounce, and aim at you.
+      Survive 20 seconds. Gets impossibly fast at the end. Pure reflex, no tricks.
+    </p>
+    <div class="game-hud">
+      <div class="hud-item">TIME <span id="dodge-time">20</span>s</div>
+      <div class="hud-item">SCORE <span id="dodge-score">0</span></div>
+      <div class="hud-item">STATUS <span id="dodge-status">Move cursor to play</span></div>
+    </div>
+    <canvas id="dodge-canvas" width="696" height="380"></canvas>
+    <div id="dodge-result" class="result-msg"></div>
+    <div class="game-actions">
+      <button class="btn btn-pick" onclick="pick('Block Dodge')">✓ PICK THIS GAME</button>
+      <button class="btn btn-restart" onclick="initDodge()">RESTART</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- GAME 4: COLOR RUSH -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="game-card" id="card-color">
+    <div class="game-card-header">
+      <div>
+        <div class="game-title">Color Rush</div>
+        <div style="color:var(--sub);font-size:13px;margin-top:4px">Tap the matching color. Don't tap the wrong one.</div>
+      </div>
+      <span class="game-vibe">COGNITIVE RAGE</span>
+    </div>
+    <p class="game-desc">
+      A color name flashes — click the circle that MATCHES THE TEXT COLOR, not the word.
+      Classic Stroop effect. Your brain fights itself. Gets faster each round.
+      Score 15 correct to pass.
+    </p>
+    <div class="game-hud">
+      <div class="hud-item">SCORE <span id="color-score">0</span>/15</div>
+      <div class="hud-item">TIME <span id="color-time">30</span>s</div>
+      <div class="hud-item">STREAK <span id="color-streak">0</span></div>
+    </div>
+    <canvas id="color-canvas" width="696" height="380"></canvas>
+    <div id="color-result" class="result-msg"></div>
+    <div class="game-actions">
+      <button class="btn btn-pick" onclick="pick('Color Rush')">✓ PICK THIS GAME</button>
+      <button class="btn btn-restart" onclick="initColor()">RESTART</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- PICK OVERLAY -->
+<div id="pick-overlay">
+  <div class="pick-title" id="pick-name">—</div>
+  <div class="pick-sub">SELECTED AS MINT GATE</div>
+  <p style="color:var(--sub);font-size:14px;max-width:360px;line-height:1.7">
+    Tell me and I'll rebuild the full launchpad with this game engine + the signed backend pass system.
+  </p>
+  <button class="pick-dismiss" onclick="document.getElementById('pick-overlay').classList.remove('show')">GOT IT</button>
+</div>
+
+<script>
+// ═══════════════════════════════════
+// TAB SWITCHER
+// ═══════════════════════════════════
+const gameKeys = ['maze','sequence','dodge','color'];
+function switchGame(key) {
+  document.querySelectorAll('.game-card').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('card-' + key).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function pick(name) {
+  document.getElementById('pick-name').textContent = name.toUpperCase();
+  document.getElementById('pick-overlay').classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════
+// GAME 1: CURSOR MAZE
+// ═══════════════════════════════════════════════════
+let maze = { cells:[], cols:0, rows:0, cellSize:0, playerX:0, playerY:0,
+  deaths:0, started:false, done:false, timer:0, timerInterval:null };
+
+function initMaze() {
+  const canvas = document.getElementById('maze-canvas');
+  const W = canvas.width, H = canvas.height;
+  const cs = 38;
+  maze.cellSize = cs;
+  maze.cols = Math.floor(W / cs);
+  maze.rows = Math.floor(H / cs);
+  maze.cells = generateMaze(maze.cols, maze.rows);
+  maze.playerX = cs * 1.5;
+  maze.playerY = cs * 1.5;
+  maze.deaths = 0; maze.started = false; maze.done = false; maze.timer = 0;
+  if (maze.timerInterval) clearInterval(maze.timerInterval);
+  document.getElementById('maze-deaths').textContent = 0;
+  document.getElementById('maze-time').textContent = '0.0';
+  document.getElementById('maze-status').textContent = 'Move to start';
+  document.getElementById('maze-result').classList.remove('show');
+  canvas.addEventListener('mousemove', mazeMouseMove);
+  canvas.addEventListener('touchmove', mazeTouchMove, { passive: false });
+  renderMaze();
+}
+
+function generateMaze(cols, rows) {
+  const cells = Array.from({length: rows}, (_,r) =>
+    Array.from({length: cols}, (_,c) => ({ r, c, walls:[true,true,true,true], visited:false }))
+  );
+  // Recursive backtracker
+  const stack = [];
+  const start = cells[0][0];
+  start.visited = true; stack.push(start);
+  const dirs = [{dr:-1,dc:0,w:0,ow:2},{dr:0,dc:1,w:1,ow:3},{dr:1,dc:0,w:2,ow:0},{dr:0,dc:-1,w:3,ow:1}];
+  while (stack.length) {
+    const cur = stack[stack.length-1];
+    const neighbors = dirs.map(d => {
+      const nr=cur.r+d.dr, nc=cur.c+d.dc;
+      if (nr<0||nr>=rows||nc<0||nc>=cols) return null;
+      const n=cells[nr][nc]; return n.visited ? null : {cell:n,...d};
+    }).filter(Boolean);
+    if (!neighbors.length) { stack.pop(); continue; }
+    const next = neighbors[Math.floor(Math.random()*neighbors.length)];
+    cur.walls[next.w] = false; next.cell.walls[next.ow] = false;
+    next.cell.visited = true; stack.push(next.cell);
+  }
+  return cells;
+}
+
+function mazeMouseMove(e) {
+  const r = e.target.getBoundingClientRect();
+  const nx = (e.clientX - r.left) * (696 / r.width);
+  const ny = (e.clientY - r.top)  * (380 / r.height);
+  moveMazePlayer(nx, ny);
+}
+
+function mazeTouchMove(e) {
+  e.preventDefault();
+  const r = e.target.getBoundingClientRect();
+  const t = e.touches[0];
+  const nx = (t.clientX - r.left) * (696 / r.width);
+  const ny = (t.clientY - r.top)  * (380 / r.height);
+  moveMazePlayer(nx, ny);
+}
+
+function moveMazePlayer(nx, ny) {
+  if (maze.done) return;
+  if (!maze.started) {
+    maze.started = true;
+    document.getElementById('maze-status').textContent = 'Reach the end!';
+    maze.timerInterval = setInterval(() => {
+      maze.timer += 0.1;
+      document.getElementById('maze-time').textContent = maze.timer.toFixed(1);
+    }, 100);
+  }
+  maze.playerX = nx; maze.playerY = ny;
+  if (checkMazeWallCollision(nx, ny)) {
+    maze.deaths++;
+    document.getElementById('maze-deaths').textContent = maze.deaths;
+    // Reset to start
+    maze.playerX = maze.cellSize * 1.5;
+    maze.playerY = maze.cellSize * 1.5;
+    document.getElementById('maze-status').textContent = `Death #${maze.deaths} — try again`;
+  }
+  // Check win (reach bottom-right cell)
+  const goalX = (maze.cols - 1.5) * maze.cellSize;
+  const goalY = (maze.rows - 1.5) * maze.cellSize;
+  if (Math.hypot(nx - goalX, ny - goalY) < maze.cellSize * 0.5) {
+    maze.done = true;
+    clearInterval(maze.timerInterval);
+    document.getElementById('maze-status').textContent = 'CLEAR!';
+    const el = document.getElementById('maze-result');
+    el.textContent = `✓ MAZE CLEARED — ${maze.timer.toFixed(1)}s · ${maze.deaths} deaths`;
+    el.className = 'result-msg show win';
+  }
+  renderMaze();
+}
+
+function checkMazeWallCollision(px, py) {
+  const cs = maze.cellSize;
+  const pr = 5; // player radius
+  const col = Math.floor(px / cs);
+  const row = Math.floor(py / cs);
+  if (col < 0 || col >= maze.cols || row < 0 || row >= maze.rows) return true;
+  const cell = maze.cells[row]?.[col];
+  if (!cell) return true;
+  const cx = col * cs, cy = row * cs;
+  // North wall
+  if (cell.walls[0] && py - pr < cy + 2)     return true;
+  // East wall
+  if (cell.walls[1] && px + pr > cx + cs - 2) return true;
+  // South wall
+  if (cell.walls[2] && py + pr > cy + cs - 2) return true;
+  // West wall
+  if (cell.walls[3] && px - pr < cx + 2)     return true;
+  return false;
+}
+
+function renderMaze() {
+  const canvas = document.getElementById('maze-canvas');
+  const ctx = canvas.getContext('2d');
+  const cs = maze.cellSize;
+  ctx.fillStyle = '#030308'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 2;
+
+  for (const row of maze.cells) {
+    for (const cell of row) {
+      const x = cell.c * cs, y = cell.r * cs;
+      ctx.beginPath();
+      if (cell.walls[0]) { ctx.moveTo(x, y);      ctx.lineTo(x+cs, y); }
+      if (cell.walls[1]) { ctx.moveTo(x+cs, y);   ctx.lineTo(x+cs, y+cs); }
+      if (cell.walls[2]) { ctx.moveTo(x, y+cs);   ctx.lineTo(x+cs, y+cs); }
+      if (cell.walls[3]) { ctx.moveTo(x, y);      ctx.lineTo(x, y+cs); }
+      ctx.stroke();
+    }
+  }
+
+  // Goal
+  const gx = (maze.cols-1)*cs, gy = (maze.rows-1)*cs;
+  ctx.fillStyle = 'rgba(34,211,238,0.15)'; ctx.fillRect(gx+4, gy+4, cs-8, cs-8);
+  ctx.fillStyle = '#22d3ee'; ctx.font = '16px Space Mono'; ctx.textAlign = 'center';
+  ctx.fillText('END', gx+cs/2, gy+cs/2+6);
+
+  // Player
+  ctx.beginPath();
+  ctx.arc(maze.playerX, maze.playerY, 5, 0, Math.PI*2);
+  ctx.fillStyle = '#a855f7';
+  ctx.shadowBlur = 14; ctx.shadowColor = '#a855f7';
+  ctx.fill(); ctx.shadowBlur = 0;
+}
+
+// ═══════════════════════════════════════════════════
+// GAME 2: SIMON SEQUENCE
+// ═══════════════════════════════════════════════════
+const SEQ_COLORS = [
+  { name:'purple', hex:'#7c3aed', light:'#a855f7' },
+  { name:'cyan',   hex:'#0891b2', light:'#22d3ee' },
+  { name:'orange', hex:'#c2410c', light:'#f97316' },
+  { name:'green',  hex:'#15803d', light:'#22c55e' },
+];
+
+let seq = { sequence:[], playerSeq:[], round:0, lives:3, phase:'idle',
+  showing:false, currentShow:0 };
+
+function initSeq() {
+  seq = { sequence:[], playerSeq:[], round:0, lives:3, phase:'start', showing:false, currentShow:0 };
+  document.getElementById('seq-lives').textContent = 3;
+  document.getElementById('seq-round').textContent = 0;
+  document.getElementById('seq-status').textContent = 'Watch the sequence...';
+  document.getElementById('seq-result').classList.remove('show');
+
+  const canvas = document.getElementById('seq-canvas');
+  canvas.onclick = seqClick;
+  setTimeout(() => nextRound(), 600);
+  renderSeq(-1, false);
+}
+
+function nextRound() {
+  seq.round++;
+  seq.playerSeq = [];
+  seq.sequence.push(Math.floor(Math.random() * 4));
+  document.getElementById('seq-round').textContent = seq.round;
+  document.getElementById('seq-status').textContent = 'Watch...';
+  showSequence(0);
+}
+
+function showSequence(i) {
+  if (i >= seq.sequence.length) {
+    seq.phase = 'player';
+    document.getElementById('seq-status').textContent = 'Your turn! Repeat it.';
+    renderSeq(-1, false);
+    return;
+  }
+  renderSeq(seq.sequence[i], true);
+  setTimeout(() => {
+    renderSeq(-1, false);
+    setTimeout(() => showSequence(i+1), 200);
+  }, 500 + Math.max(0, 100 - seq.round * 20));
+}
+
+function seqClick(e) {
+  if (seq.phase !== 'player') return;
+  const canvas = document.getElementById('seq-canvas');
+  const r = canvas.getBoundingClientRect();
+  const x = (e.clientX - r.left) * (696 / r.width);
+  const y = (e.clientY - r.top)  * (380 / r.height);
+  const W = canvas.width, H = canvas.height;
+
+  // 2x2 grid of buttons
+  const bw = W/2 - 20, bh = H/2 - 20;
+  const btnIdx = [
+    [30, 30, bw, bh],
+    [W/2+10, 30, bw, bh],
+    [30, H/2+10, bw, bh],
+    [W/2+10, H/2+10, bw, bh],
+  ];
+
+  for (let i = 0; i < 4; i++) {
+    const [bx, by, bwi, bhi] = btnIdx[i];
+    if (x >= bx && x <= bx+bwi && y >= by && y <= by+bhi) {
+      seq.playerSeq.push(i);
+      renderSeq(i, true);
+      setTimeout(() => renderSeq(-1, false), 150);
+
+      if (seq.playerSeq[seq.playerSeq.length-1] !== seq.sequence[seq.playerSeq.length-1]) {
+        // Wrong
+        seq.lives--;
+        document.getElementById('seq-lives').textContent = seq.lives;
+        if (seq.lives <= 0) {
+          seq.phase = 'dead';
+          const el = document.getElementById('seq-result');
+          el.textContent = `✗ FAILED at round ${seq.round} — no lives left`;
+          el.className = 'result-msg show lose';
+          return;
+        }
+        document.getElementById('seq-status').textContent = `Wrong! ${seq.lives} lives left. Watch again...`;
+        seq.playerSeq = [];
+        setTimeout(() => showSequence(0), 1000);
+        return;
+      }
+
+      if (seq.playerSeq.length === seq.sequence.length) {
+        if (seq.round >= 7) {
+          seq.phase = 'won';
+          const el = document.getElementById('seq-result');
+          el.textContent = '✓ SEQUENCE MASTERED — you passed!';
+          el.className = 'result-msg show win';
+          return;
+        }
+        document.getElementById('seq-status').textContent = `Round ${seq.round} ✓ — get ready...`;
+        setTimeout(() => nextRound(), 800);
+      }
+      return;
+    }
+  }
+}
+
+function renderSeq(lit, bright) {
+  const canvas = document.getElementById('seq-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#030308'; ctx.fillRect(0,0,W,H);
+
+  const bw = W/2 - 20, bh = H/2 - 20;
+  const btns = [
+    [30, 30],
+    [W/2+10, 30],
+    [30, H/2+10],
+    [W/2+10, H/2+10],
+  ];
+
+  btns.forEach(([bx,by], i) => {
+    const c = SEQ_COLORS[i];
+    const isLit = i === lit;
+    ctx.fillStyle   = isLit ? c.light : c.hex;
+    ctx.globalAlpha = isLit ? 1 : 0.45;
+    ctx.shadowBlur  = isLit ? 30 : 0;
+    ctx.shadowColor = c.light;
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.strokeStyle = isLit ? c.light : 'rgba(255,255,255,0.1)';
+    ctx.lineWidth   = isLit ? 2 : 1;
+    ctx.strokeRect(bx, by, bw, bh);
+    ctx.fillStyle   = isLit ? '#000' : 'rgba(255,255,255,0.3)';
+    ctx.font        = 'bold 13px Space Mono';
+    ctx.textAlign   = 'center';
+    ctx.fillText((i+1).toString(), bx+bw/2, by+bh/2+5);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// GAME 3: BLOCK DODGE
+// ═══════════════════════════════════════════════════
+let dodge = { blocks:[], playerX:348, playerY:300, alive:true, timeLeft:20,
+  score:0, started:false, raf:null, timer:null, lastSpawn:0 };
+
+function initDodge() {
+  if (dodge.raf) cancelAnimationFrame(dodge.raf);
+  if (dodge.timer) clearInterval(dodge.timer);
+  dodge = { blocks:[], playerX:348, playerY:300, alive:true, timeLeft:20,
+    score:0, started:false, raf:null, timer:null, lastSpawn:0 };
+  document.getElementById('dodge-time').textContent = 20;
+  document.getElementById('dodge-score').textContent = 0;
+  document.getElementById('dodge-status').textContent = 'Move cursor to play';
+  document.getElementById('dodge-result').classList.remove('show');
+
+  const canvas = document.getElementById('dodge-canvas');
+  canvas.onmousemove = (e) => {
+    const r = canvas.getBoundingClientRect();
+    dodge.playerX = (e.clientX - r.left) * (696 / r.width);
+    dodge.playerY = (e.clientY - r.top)  * (380 / r.height);
+    if (!dodge.started && dodge.alive) startDodge();
+  };
+
+  renderDodge();
+}
+
+function startDodge() {
+  dodge.started = true;
+  document.getElementById('dodge-status').textContent = 'SURVIVE!';
+  dodge.timer = setInterval(() => {
+    dodge.timeLeft--;
+    document.getElementById('dodge-time').textContent = dodge.timeLeft;
+    if (dodge.timeLeft <= 0 && dodge.alive) endDodge(true);
+  }, 1000);
+  dodgeLoop();
+}
+
+function dodgeLoop() {
+  if (!dodge.alive || dodge.timeLeft <= 0) return;
+  const now = performance.now();
+  const difficulty = 1 + (20 - dodge.timeLeft) * 0.15;
+
+  // Spawn
+  if (now - dodge.lastSpawn > 600 / difficulty) {
+    dodge.lastSpawn = now;
+    const side = Math.floor(Math.random() * 4);
+    let x, y, vx, vy;
+    const spd = (2.5 + Math.random() * 2) * difficulty;
+    if (side === 0) { x = Math.random()*696; y = -15; vx=(Math.random()-0.5)*2; vy=spd; }
+    else if (side===1) { x=710; y=Math.random()*380; vx=-spd; vy=(Math.random()-0.5)*2; }
+    else if (side===2) { x=Math.random()*696; y=395; vx=(Math.random()-0.5)*2; vy=-spd; }
+    else { x=-15; y=Math.random()*380; vx=spd; vy=(Math.random()-0.5)*2; }
+    const sz = 10 + Math.random() * 18;
+    // Some blocks home in on player
+    const homing = Math.random() < 0.3;
+    dodge.blocks.push({ x, y, vx, vy, sz, homing, color: homing ? '#f43f5e' : '#7c3aed' });
+  }
+
+  // Update blocks
+  dodge.blocks = dodge.blocks.filter(b => {
+    b.x += b.vx; b.y += b.vy;
+    if (b.homing) {
+      const dx = dodge.playerX - b.x, dy = dodge.playerY - b.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0) { b.vx += (dx/dist) * 0.15; b.vy += (dy/dist) * 0.15; }
+    }
+    if (b.x < -50 || b.x > 750 || b.y < -50 || b.y > 430) return false;
+    // Collision
+    if (Math.hypot(b.x - dodge.playerX, b.y - dodge.playerY) < b.sz + 7) {
+      endDodge(false); return false;
+    }
+    return true;
+  });
+
+  dodge.score++;
+  document.getElementById('dodge-score').textContent = dodge.score;
+  renderDodge();
+  dodge.raf = requestAnimationFrame(dodgeLoop);
+}
+
+function endDodge(won) {
+  dodge.alive = false;
+  clearInterval(dodge.timer);
+  cancelAnimationFrame(dodge.raf);
+  const el = document.getElementById('dodge-result');
+  if (won) {
+    el.textContent = `✓ SURVIVED 20s — score: ${dodge.score}`;
+    el.className = 'result-msg show win';
+    document.getElementById('dodge-status').textContent = 'SURVIVED';
+  } else {
+    el.textContent = `✗ KILLED — survived ${20-dodge.timeLeft}s`;
+    el.className = 'result-msg show lose';
+    document.getElementById('dodge-status').textContent = 'DEAD';
+  }
+  renderDodge();
+}
+
+function renderDodge() {
+  const canvas = document.getElementById('dodge-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#030308'; ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(124,58,237,0.04)'; ctx.lineWidth = 1;
+  for (let x=0;x<W;x+=32){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for (let y=0;y<H;y+=32){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  for (const b of dodge.blocks) {
+    ctx.fillStyle   = b.color;
+    ctx.shadowBlur  = 12; ctx.shadowColor = b.color;
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(b.x - b.sz, b.y - b.sz, b.sz*2, b.sz*2);
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+  }
+
+  if (dodge.started) {
+    ctx.beginPath();
+    ctx.arc(dodge.playerX, dodge.playerY, 8, 0, Math.PI*2);
+    ctx.fillStyle   = dodge.alive ? '#22d3ee' : '#f43f5e';
+    ctx.shadowBlur  = 20; ctx.shadowColor = dodge.alive ? '#22d3ee' : '#f43f5e';
+    ctx.fill(); ctx.shadowBlur = 0;
+    // crosshair
+    ctx.strokeStyle = 'rgba(34,211,238,0.4)'; ctx.lineWidth = 1;
+    const g = 12;
+    ctx.beginPath();
+    ctx.moveTo(dodge.playerX-g,dodge.playerY); ctx.lineTo(dodge.playerX-10,dodge.playerY);
+    ctx.moveTo(dodge.playerX+10,dodge.playerY); ctx.lineTo(dodge.playerX+g,dodge.playerY);
+    ctx.moveTo(dodge.playerX,dodge.playerY-g); ctx.lineTo(dodge.playerX,dodge.playerY-10);
+    ctx.moveTo(dodge.playerX,dodge.playerY+10); ctx.lineTo(dodge.playerX,dodge.playerY+g);
+    ctx.stroke();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// GAME 4: COLOR RUSH (Stroop effect)
+// ═══════════════════════════════════════════════════
+const STROOP_COLORS = [
+  { name:'RED',    hex:'#f43f5e' },
+  { name:'BLUE',   hex:'#3b82f6' },
+  { name:'GREEN',  hex:'#22c55e' },
+  { name:'YELLOW', hex:'#eab308' },
+];
+
+let color = { score:0, timeLeft:30, streak:0, running:false, target:null,
+  options:[], timer:null, raf:null, flashColor:null, flashTimer:null };
+
+function initColor() {
+  if (color.timer) clearInterval(color.timer);
+  color = { score:0, timeLeft:30, streak:0, running:false, target:null,
+    options:[], timer:null, raf:null, flashColor:null, flashTimer:null };
+  document.getElementById('color-score').textContent = 0;
+  document.getElementById('color-time').textContent = 30;
+  document.getElementById('color-streak').textContent = 0;
+  document.getElementById('color-result').classList.remove('show');
+
+  const canvas = document.getElementById('color-canvas');
+  canvas.onclick = colorClick;
+  nextColorRound();
+  color.timer = setInterval(() => {
+    color.timeLeft--;
+    document.getElementById('color-time').textContent = color.timeLeft;
+    if (color.timeLeft <= 0) endColor(false);
+  }, 1000);
+  color.running = true;
+  renderColor();
+}
+
+function nextColorRound() {
+  // Word = random color name, ink = DIFFERENT random color
+  const wordIdx = Math.floor(Math.random() * 4);
+  let inkIdx;
+  do { inkIdx = Math.floor(Math.random() * 4); } while (inkIdx === wordIdx);
+  color.target = { word: STROOP_COLORS[wordIdx], ink: STROOP_COLORS[inkIdx] };
+  // 4 circles — one matches ink color, rest are distractors
+  const positions = shuffleArr([0,1,2,3]);
+  const correctPos = positions[0];
+  color.options = positions.map((_, i) => {
+    const isCorrect = i === 0;
+    if (isCorrect) return { color: STROOP_COLORS[inkIdx], correct: true };
+    // Distractor — not the ink color
+    let dc; do { dc = Math.floor(Math.random()*4); } while(dc === inkIdx);
+    return { color: STROOP_COLORS[dc], correct: false };
+  });
+  // Shuffle so correct isn't always first position
+  color.options = shuffleArr(color.options);
+}
+
+function shuffleArr(arr) {
+  const a = [...arr];
+  for (let i = a.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function colorClick(e) {
+  if (!color.running) return;
+  const canvas = document.getElementById('color-canvas');
+  const r = canvas.getBoundingClientRect();
+  const x = (e.clientX - r.left) * (696 / r.width);
+  const y = (e.clientY - r.top)  * (380 / r.height);
+  const W = canvas.width;
+
+  // 4 circles evenly spaced
+  const circleR = 44;
+  const positions = [W*0.15, W*0.38, W*0.62, W*0.85];
+  const cy = 280;
+
+  for (let i = 0; i < 4; i++) {
+    if (Math.hypot(x - positions[i], y - cy) < circleR) {
+      if (color.options[i].correct) {
+        color.score++; color.streak++;
+        color.flashColor = '#22d3ee';
+        document.getElementById('color-score').textContent = color.score;
+        document.getElementById('color-streak').textContent = color.streak;
+        if (color.score >= 15) { endColor(true); return; }
+      } else {
+        color.streak = 0;
+        color.flashColor = '#f43f5e';
+        document.getElementById('color-streak').textContent = 0;
+      }
+      clearTimeout(color.flashTimer);
+      color.flashTimer = setTimeout(() => { color.flashColor = null; renderColor(); }, 200);
+      nextColorRound();
+      renderColor();
+      return;
+    }
+  }
+}
+
+function endColor(won) {
+  color.running = false;
+  clearInterval(color.timer);
+  const el = document.getElementById('color-result');
+  if (won) {
+    el.textContent = `✓ 15 CORRECT — streak: ${color.streak}`;
+    el.className = 'result-msg show win';
+  } else {
+    el.textContent = `✗ TIME'S UP — ${color.score}/15 correct`;
+    el.className = 'result-msg show lose';
+  }
+}
+
+function renderColor() {
+  const canvas = document.getElementById('color-canvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.fillStyle = color.flashColor || '#030308';
+  ctx.fillRect(0,0,W,H);
+  if (color.flashColor) {
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = color.flashColor;
+    ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha = 1;
+  }
+
+  if (!color.target) return;
+
+  // Instruction text at top
+  ctx.fillStyle   = '#4a4a6a';
+  ctx.font        = '13px Space Mono';
+  ctx.textAlign   = 'center';
+  ctx.fillText('CLICK THE CIRCLE MATCHING THE INK COLOR OF THE WORD BELOW', W/2, 40);
+
+  // The word — shown in its INK color (not matching the word name)
+  ctx.font        = 'bold 64px Space Grotesk';
+  ctx.fillStyle   = color.target.ink.hex;
+  ctx.shadowBlur  = 24; ctx.shadowColor = color.target.ink.hex;
+  ctx.fillText(color.target.word.name, W/2, 160);
+  ctx.shadowBlur  = 0;
+
+  // Sub hint
+  ctx.font      = '11px Space Mono';
+  ctx.fillStyle = '#2a2a4a';
+  ctx.fillText('(ignore what the word says — match the color it\'s drawn in)', W/2, 195);
+
+  // 4 circles
+  const positions = [W*0.15, W*0.38, W*0.62, W*0.85];
+  const cy = 280, cr = 44;
+  color.options.forEach((opt, i) => {
+    ctx.beginPath();
+    ctx.arc(positions[i], cy, cr, 0, Math.PI*2);
+    ctx.fillStyle   = opt.color.hex;
+    ctx.shadowBlur  = 16; ctx.shadowColor = opt.color.hex;
+    ctx.fill();
+    ctx.shadowBlur  = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth   = 1;
+    ctx.stroke();
+  });
+
+  if (color.running) requestAnimationFrame(renderColor);
+}
+
+// ── INIT ALL ──────────────────────────
+initMaze();
+initSeq();
+initDodge();
+renderColor();
+document.getElementById('seq-canvas').onclick = seqClick;
+
+// Init color on first render
+nextColorRound();
+renderColor();
+</script>
+</body>
+</html>
